@@ -197,6 +197,7 @@ projeto_mineracao_dados/
 ├── guia.md            # glossário dos termos técnicos usados no dataset
 ├── crisp.md           # fases do CRISP-DM: o que foi feito e o plano de cada uma
 ├── requirements.txt
+├── README.md          # visão geral do projeto e como gerar os dados
 ├── CLAUDE.md           # este arquivo
 ├── .gitignore
 └── dados/             # saída (csv + xlsx), ignorada no git
