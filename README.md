@@ -1,53 +1,42 @@
-# Faturamento setorial por estado — mineração de dados
+# Faturamento do varejo e dos serviços por estado
 
-Trabalho da disciplina de Mineração de Dados, desenvolvido com a metodologia
+Trabalho da disciplina de Mineração de Dados, seguindo a metodologia
 **CRISP-DM**.
 
 ## Sobre o projeto
 
-**Objetivo:** trazer previsibilidade sobre **quais setores da economia, em quais
-estados, tendem a ter bom faturamento nos próximos meses** — um apoio à decisão
-para quem precisa antecipar onde a receita vai crescer.
+**Pergunta:** em quais estados o faturamento do **comércio varejista** e dos
+**serviços** deve crescer acima da inflação nos próximos meses?
 
-**O desafio dos dados:** nenhum órgão oficial publica o faturamento mensal dos
-setores em reais por estado. O que existe é espalhado:
+**De onde vêm os dados:** todo mês o IBGE publica, para cada estado, um índice
+que mostra como está o faturamento do varejo (Pesquisa Mensal de Comércio – PMC)
+e dos serviços (Pesquisa Mensal de Serviços – PMS). O projeto baixa esses
+índices direto do IBGE, junto com a inflação oficial (IPCA), e monta uma tabela
+única:
 
-- o IBGE publica **índices mensais** de receita (comércio e serviços) e de
-  produção (indústria), que mostram o movimento, mas não o valor em R$;
-- o IBGE publica **receitas anuais em R$** por estado, que mostram o tamanho, mas
-  saem uma vez por ano;
-- para o agro, só a **exportação** tem valor mensal por estado (Comex Stat).
+- **2 setores:** comércio varejista e serviços
+- **27 estados + Brasil**
+- **mês a mês**, de janeiro/2012 até o último mês publicado
 
-**O que este repositório faz:** junta essas fontes oficiais num único dataset
-com o **faturamento mensal estimado em R$ por segmento e estado**, de jan/2012 a
-2026, pronto para análise e modelagem.
+**O que vamos fazer com eles:**
 
-| Segmento | Estados |
-|---|---|
-| Comércio varejista | 27 |
-| Comércio de veículos | 12 |
-| Serviços (total e 5 grupos) | 27 (grupos: 12) |
-| Indústria (total, extrativa e transformação) | 17 |
-| Exportação do agro | 27 |
+- **K-means** para agrupar estados e setores com comportamento parecido;
+- **Random Forest** para prever se o faturamento vai crescer acima da inflação
+  nos próximos 3 meses.
 
-**Próximas etapas:** análise exploratória e modelagem — K-means para agrupar
-setores/estados com comportamento parecido e Random Forest para prever quais vão
-crescer acima da inflação nos próximos 3 meses. O plano completo está em
-[crisp.md](crisp.md).
+O passo a passo do trabalho está em [crisp.md](crisp.md).
 
 ## Como gerar os dados
 
-Todas as fontes são APIs públicas, sem cadastro nem chave. É preciso ter
-internet.
+Precisa de internet. A API do IBGE é pública, sem cadastro.
 
-### 1. Pré-requisitos
+### 1. Instalar o Python
 
-- **Python 3.12** — confira com `python --version`. Para instalar no Windows:
-  `winget install -e --id Python.Python.3.12`, ou baixe em
-  https://www.python.org/downloads/ marcando **"Add python.exe to PATH"**.
-- **Git** (para clonar o repositório).
+Confira se já tem o **Python 3.12** com `python --version`. Se não tiver:
+`winget install -e --id Python.Python.3.12`, ou baixe em
+https://www.python.org/downloads/ marcando **"Add python.exe to PATH"**.
 
-### 2. Instalação
+### 2. Preparar o projeto (só na primeira vez)
 
 ```powershell
 git clone https://github.com/jhondev123/projeto_mineracao_dados.git
@@ -57,127 +46,188 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-No Linux/macOS, troque a ativação por `source .venv/bin/activate`.
-
-> Se o PowerShell bloquear o `activate`, dá para rodar sem ativar:
-> `.venv\Scripts\python dataset.py`.
+No Linux/macOS, a ativação é `source .venv/bin/activate`.
 
 ### 3. Gerar o dataset
 
+Toda vez que abrir um terminal novo, ative o ambiente antes:
+
 ```powershell
+.venv\Scripts\activate
 python dataset.py
 ```
 
-O arquivo sai em `dados/faturamento_uf_mensal_AAAAMMDD.csv` (data do dia no
-nome). Pode levar alguns minutos. Durante a execução aparece o progresso de cada
-segmento:
+> **Deu `ModuleNotFoundError: No module named 'pandas'`?** O ambiente não está
+> ativado. Rode `.venv\Scripts\activate` (aparece `(.venv)` no início da linha)
+> ou chame direto `.venv\Scripts\python dataset.py`.
+
+Saída esperada:
 
 ```
-[COMERCIO_VAREJISTA] baixando...
-[COMERCIO_VAREJISTA] 27 UFs, 4698 linhas
-...
-[AGRO_EXPORTACAO] 27 UFs, 4752 linhas
-salvo: dados\faturamento_uf_mensal_20260911.csv (32955 linhas)
+[COMERCIO_VAREJISTA] baixando tabela 8880...
+[SERVICOS] baixando tabela 5906...
+[IPCA] baixando tabela 1737...
+salvo: ...\dados\faturamento_uf_mensal_20260911.csv (9772 linhas, 28 localidades)
 ```
 
-Para outro intervalo de meses:
+Rodar de novo no futuro já traz os meses mais recentes. Para outro intervalo:
+`python dataset.py --periodos 201501-202612`.
 
-```powershell
-python dataset.py --periodos 201501-202612
-```
+## Como o dataset é montado
 
-Rodar de novo no futuro já traz os meses mais recentes publicados.
-
-### O que o script faz
-
-1. **Baixa os índices mensais** de receita nominal do IBGE (PMC e PMS) e, na
-   indústria, produção física (PIM-PF) × preço ao produtor (IPP).
-2. **Baixa a receita anual de 2024 em R$** de cada estado (PAC, PAS e PIA).
-3. **Estima o valor mensal em R$** distribuindo a receita anual pelos meses
-   conforme o índice:
-   `valor_mês = receita_anual_2024 × índice_mês ÷ soma dos índices de 2024`.
-   Assim os meses de 2024 somam exatamente o valor oficial e os demais seguem a
-   variação do índice.
-4. **Baixa a exportação agropecuária mensal** por estado (Comex Stat, em US$) e
-   converte para R$ pelo câmbio médio do mês (Banco Central).
-5. **Salva tudo num CSV** único.
-
-Detalhes do método e exemplo com números reais em [guia.md](guia.md).
-
-### Dados brutos (opcional)
-
-O `coleta.py` baixa as tabelas originais do IBGE com todas as variáveis, sem
-tratamento — útil para conferir os números:
-
-```powershell
-python coleta.py                             # últimos 24 meses, Brasil
-python coleta.py --periodos -36              # últimos 36 meses
-python coleta.py --localidades N3[all]       # por estado
-```
-
-Gera um CSV por pesquisa, um consolidado e um `.xlsx` com uma aba por pesquisa.
-
-Para ver o que uma tabela do IBGE tem antes de baixar:
-
-```powershell
-python explorar.py 8880
-```
-
-## Formato do dataset
-
-Uma linha por segmento × estado × mês. Separador `;` e codificação UTF-8 com BOM,
-então abre direto no Excel em português.
+Tudo acontece no `dataset.py`: são 3 buscas no IBGE e alguns tratamentos simples
+até chegar no CSV final.
 
 ```
-nivel;segmento;uf;ano;mes;valor
-setor;COMERCIO_VAREJISTA;SP;2025;4;89064213991
-setor;INDUSTRIA;SP;2025;4;169056815606
-setor;SERVICOS;SP;2025;4;142433645451
+API do IBGE (SIDRA)
+ ├─ tabela 8880 — varejo    ─┐
+ ├─ tabela 5906 — serviços  ─┼─► organiza em linhas ─► limpa ─► junta o IPCA ─► formata ─► CSV
+ └─ tabela 1737 — IPCA      ─┘
 ```
 
-| Coluna | Descrição |
+### De onde vêm os dados
+
+Da **API de Agregados do IBGE**
+(`https://servicodados.ibge.gov.br/api/v3/agregados`), que dá acesso por programa
+às mesmas tabelas do site [SIDRA](https://sidra.ibge.gov.br). É pública, sem
+cadastro nem chave.
+
+### Quais dados buscamos
+
+Cada tabela do IBGE traz várias versões do mesmo dado (com e sem ajuste
+sazonal, variações %, volume...). O script pede **só a versão que representa o
+faturamento**, já filtrada na chamada:
+
+| Tabela | Pesquisa | O que a tabela oferece | O que pegamos | Recorte |
+|---|---|---|---|---|
+| [8880](https://sidra.ibge.gov.br/tabela/8880) | PMC — Pesquisa Mensal de Comércio | 6 variáveis × 2 tipos (receita nominal e volume) | índice de **receita nominal** (2022 = 100), sem ajuste sazonal | Brasil + 27 UFs |
+| [5906](https://sidra.ibge.gov.br/tabela/5906) | PMS — Pesquisa Mensal de Serviços | 6 variáveis × 2 tipos (receita nominal e volume) | índice de **receita nominal** (2022 = 100), sem ajuste sazonal | Brasil + 27 UFs |
+| [1737](https://sidra.ibge.gov.br/tabela/1737) | IPCA — inflação oficial | 6 variáveis (índice, variação mensal, acumulados) | **número-índice** do IPCA | só Brasil (não existe por UF) |
+
+Por que só essa versão está explicado em [guia.md](guia.md#5-o-que-o-ibge-oferece-e-o-que-usamos).
+
+Exemplo da chamada feita para o varejo:
+
+```
+GET https://servicodados.ibge.gov.br/api/v3/agregados/8880/periodos/201201-202612/variaveis/7169
+    ?localidades=N1[all]|N3[all]
+    &classificacao=11046[56733]
+```
+
+- `7169` = número-índice; `11046[56733]` = tipo "receita nominal"
+- `N1` = Brasil; `N3` = estados
+- o período vai até dez/2026, mas a API devolve só os meses já publicados
+
+### Tratamentos, passo a passo
+
+**1. Organizar em linhas.** A API devolve os dados aninhados (variável →
+localidade → meses). Trecho real da resposta:
+
+```json
+"localidade": { "id": "35", "nome": "São Paulo" },
+"serie": { "202503": "118.90037", "202504": "118.53521" }
+```
+
+O script transforma isso em uma linha por localidade × mês:
+
+| localidade | periodo | valor |
+|---|---|---|
+| São Paulo | 202503 | 118.90037 |
+| São Paulo | 202504 | 118.53521 |
+
+**2. Converter e limpar.** O IBGE manda os números como texto; o script converte
+para número. Quando o IBGE não tem o valor, ele manda um símbolo (`X` = sigilo,
+`..` = não se aplica, `...` = não disponível, `-` = zero); essas linhas são
+descartadas. Na coleta atual nenhum mês ficou faltando.
+
+**3. Marcar o setor e juntar.** Cada linha recebe `COMERCIO_VAREJISTA` ou
+`SERVICOS`, e as duas tabelas viram uma só.
+
+**4. Juntar o IPCA pelo mês.** O IPCA de cada mês é repetido em todas as linhas
+daquele mês — por isso SP, BA e BR têm o mesmo `ipca` em abril/2025 (7276,54).
+
+**5. Formatar.**
+- nome do estado → sigla ("São Paulo" → `SP`, "Brasil" → `BR`);
+- período → duas colunas ("202504" → `ano` 2025, `mes` 4);
+- linhas ordenadas por setor, estado, ano e mês.
+
+**6. Salvar.** `dados/faturamento_uf_mensal_AAAAMMDD.csv`, com separador `;` e
+decimal `,` para abrir no Excel em português.
+
+Resultado: varejo com 28 localidades × 174 meses (4.872 linhas) + serviços com
+28 × 175 meses (4.900 linhas) = **9.772 linhas**.
+
+### O que fica de fora do dataset (de propósito)
+
+O CSV guarda **exatamente o que o IBGE publica** — todas as colunas são dados
+oficiais. As contas abaixo ficam para a etapa de preparação (fase 3 do
+[crisp.md](crisp.md)), onde aparecem na análise:
+
+- descontar a inflação (`indice_receita / ipca`);
+- calcular a variação contra o mesmo mês do ano anterior;
+- tratar o período da pandemia (2020–2021);
+- criar os atributos e o alvo do modelo.
+
+## O arquivo gerado
+
+`dados/faturamento_uf_mensal_AAAAMMDD.csv` — abre direto no Excel (separador
+`;`, decimal `,`). Uma linha por setor × estado × mês:
+
+```
+setor;uf;ano;mes;indice_receita;ipca
+COMERCIO_VAREJISTA;SP;2025;3;118,90037;7245,38
+COMERCIO_VAREJISTA;SP;2025;4;118,53521;7276,54
+```
+
+| Coluna | O que é |
 |---|---|
-| `nivel` | `setor` (segmentos que não se sobrepõem) ou `subsetor` (abertura de serviços e indústria) |
-| `segmento` | ex.: `SERVICOS`, `SERVICOS_TRANSPORTES`, `AGRO_EXPORTACAO` |
-| `uf` | sigla do estado |
-| `ano`, `mes` | período de referência |
-| `valor` | faturamento do mês em reais (inteiro) |
+| `setor` | `COMERCIO_VAREJISTA` ou `SERVICOS` |
+| `uf` | sigla do estado; `BR` = Brasil |
+| `ano`, `mes` | mês de referência |
+| `indice_receita` | índice de faturamento do IBGE: **100 = média mensal de 2022**. 118,5 = faturou 18,5% a mais que a média de 2022 |
+| `ipca` | índice da inflação oficial, usado para descontar a inflação |
 
-> **Não some linhas de `setor` com `subsetor`** — os subsetores já estão dentro
-> do setor. Para o total de um estado, filtre `nivel == "setor"`.
+Para ler no Python e descontar a inflação:
+
+```python
+import pandas as pd
+
+df = pd.read_csv("dados/faturamento_uf_mensal_20260911.csv", sep=";", decimal=",")
+df["indice_real"] = df["indice_receita"] / df["ipca"]
+```
+
+Exemplo — varejo de SP, abril/2025 contra abril/2024: faturamento **+13,8%**,
+inflação **+5,5%**, crescimento real **+7,8%**.
 
 ## Limitações
 
-- O valor mensal em R$ é uma **estimativa** (o nível vem da pesquisa anual). As
-  **variações percentuais** são as mesmas dos índices oficiais.
-- **Indústria:** usa produção física × preço ao produtor nacional como
-  aproximação da receita.
-- **Agro:** é só a **exportação** de produtos primários (soja em grão, milho,
-  café, algodão...), não o faturamento total do setor.
-- Valores **nominais** (com inflação); a correção pelo IPCA é o próximo passo.
-- Nem todo segmento cobre os 27 estados (tabela acima).
+- É um **índice**, não valor em reais: mostra quanto o faturamento subiu ou caiu,
+  não quanto foi em R$.
+- As pesquisas cobrem **empresas formais com 20 ou mais pessoas ocupadas**;
+  pequenos negócios e informais ficam de fora.
+- Só **varejo e serviços**: são os setores em que o IBGE publica faturamento
+  mensal por estado.
 
-## Estrutura do repositório
+Os termos técnicos estão explicados em [guia.md](guia.md).
+
+## Estrutura
 
 ```
 projeto_mineracao_dados/
-├── dataset.py         # gera o dataset unificado
-├── coleta.py          # baixa as tabelas brutas do IBGE
-├── explorar.py        # mostra variáveis e classificações de uma tabela do IBGE
-├── sidra.py           # cliente da API do IBGE
-├── requirements.txt   # dependências Python
+├── dataset.py         # baixa os dados do IBGE e gera o CSV
+├── sidra.py           # funções de acesso à API do IBGE
+├── explorar.py        # mostra o que uma tabela do IBGE contém (python explorar.py 8880)
+├── requirements.txt   # bibliotecas Python
 ├── README.md          # este arquivo
-├── fontes.md          # de onde vem cada dado e como citar
-├── guia.md            # glossário dos termos técnicos
-├── crisp.md           # fases do CRISP-DM: o que foi feito e o plano
-├── CLAUDE.md          # contexto técnico completo e decisões do projeto
-└── dados/             # saída dos scripts (não versionada)
+├── crisp.md           # etapas do CRISP-DM e plano do trabalho
+├── guia.md            # termos técnicos explicados
+├── fontes.md          # fontes e como citar
+├── CLAUDE.md          # contexto técnico e decisões do projeto
+└── dados/             # CSV gerado (não vai para o git)
 ```
 
 ## Fontes
 
-- **IBGE / SIDRA** — PMC, PMS, PIM-PF, IPP, PAC, PAS, PIA
-- **Comex Stat / MDIC** — exportações por estado
-- **Banco Central / SGS** — câmbio médio mensal
-
-Tabelas, links e referências no formato ABNT em [fontes.md](fontes.md).
+IBGE / SIDRA — Pesquisa Mensal de Comércio (tabela 8880), Pesquisa Mensal de
+Serviços (tabela 5906) e IPCA (tabela 1737). Links e referências no formato ABNT
+em [fontes.md](fontes.md).
