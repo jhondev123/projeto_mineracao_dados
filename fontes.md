@@ -1,13 +1,15 @@
 # Fontes dos dados
 
-Todos os dados vêm do **IBGE**, pela API pública de Agregados (SIDRA), sem
-cadastro nem chave. Data de acesso: 11/09/2026.
+Os dados vêm do **IBGE** (faturamento e inflação) e do **Banco Central** (dólar e
+Selic), por APIs públicas, sem cadastro nem chave. Data de acesso: 11/09/2026.
+
+## IBGE
 
 - API: `https://servicodados.ibge.gov.br/api/v3/agregados`
 - Documentação: https://servicodados.ibge.gov.br/api/docs/agregados?versao=3
 - Consulta das tabelas no navegador: `https://sidra.ibge.gov.br/tabela/<número>`
 
-## Tabelas usadas
+### Tabelas usadas
 
 | Tabela | Pesquisa | O que foi usado | Coluna no CSV |
 |---|---|---|---|
@@ -18,6 +20,16 @@ cadastro nem chave. Data de acesso: 11/09/2026.
 Páginas das pesquisas:
 - PMC: https://www.ibge.gov.br/estatisticas/economicas/comercio/9227-pesquisa-mensal-de-comercio.html
 - PMS: https://www.ibge.gov.br/estatisticas/economicas/servicos/9229-pesquisa-mensal-de-servicos.html
+
+## Banco Central do Brasil
+
+- API: `https://api.bcb.gov.br/dados/serie/bcdata.sgs.<série>/dados?formato=json`
+- Portal do SGS (Sistema Gerenciador de Séries Temporais): https://www3.bcb.gov.br/sgspub
+
+| Série | O que é | Coluna no CSV |
+|---|---|---|
+| 3698 | Taxa de câmbio livre, dólar americano (venda), média do mês (R$/US$) | `dolar` |
+| 4189 | Taxa Selic acumulada no mês, anualizada (% ao ano) | `selic` |
 
 ## Consideradas e deixadas de fora
 
@@ -44,3 +56,6 @@ explicar.
 - IBGE. **Índice Nacional de Preços ao Consumidor Amplo – IPCA**. Rio de Janeiro:
   IBGE, 2026. Disponível em: https://sidra.ibge.gov.br/tabela/1737. Acesso em: 11
   set. 2026.
+- BANCO CENTRAL DO BRASIL. **Sistema Gerenciador de Séries Temporais – SGS**:
+  séries 3698 (câmbio) e 4189 (Selic). Brasília: BCB, 2026. Disponível em:
+  https://www3.bcb.gov.br/sgspub. Acesso em: 11 set. 2026.

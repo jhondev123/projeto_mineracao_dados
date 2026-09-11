@@ -25,7 +25,7 @@ Termos técnicos: [guia.md](guia.md). Fontes: [fontes.md](fontes.md).
 | Fase | Status | Arquivos |
 |---|---|---|
 | 1. Entendimento do negócio | feito (definição do alvo a confirmar) | este arquivo |
-| 2. Entendimento dos dados | coleta e conferência feitas; falta a exploração | `dataset.py`, `explorar.py`, `fontes.md` |
+| 2. Entendimento dos dados | coleta, conferência e gráficos iniciais feitos; falta completar a exploração | `dataset.py`, `graficos.py`, `explorar.py`, `fontes.md` |
 | 3. Preparação dos dados | dados integrados; faltam atributos e alvo | `dataset.py` |
 | 4. Modelagem | não iniciada | — |
 | 5. Avaliação | não iniciada | — |
@@ -34,7 +34,7 @@ Termos técnicos: [guia.md](guia.md). Fontes: [fontes.md](fontes.md).
 ## Os dados bastam para começar?
 
 **Sim.** São 9.772 linhas: 2 setores (varejo e serviços) × 27 estados + Brasil,
-mês a mês desde janeiro/2012. Descontando os meses iniciais usados para calcular
+mês a mês desde janeiro/2012, com inflação, dólar e Selic de cada mês. Descontando os meses iniciais usados para calcular
 variações, sobram cerca de 8 mil exemplos (54 séries de estados × ~150 meses) —
 suficiente para K-means e Random Forest.
 
@@ -77,23 +77,30 @@ verificar a qualidade.
 
 1. **Coleta** — feito. Levantamento das pesquisas do IBGE e de outras fontes
    (Kaggle, CONFAZ, agro, indústria); escolha das duas pesquisas com
-   faturamento mensal para todos os estados (PMC e PMS) mais o IPCA. O
-   `dataset.py` baixa tudo da API do IBGE.
+   faturamento mensal para todos os estados (PMC e PMS) mais o IPCA; dólar e
+   Selic do Banco Central como indicadores da economia. O `dataset.py` baixa
+   tudo das APIs do IBGE e do Banco Central.
 2. **Descrição** — feito. 2 setores, 27 estados + Brasil, varejo de jan/2012 a
    jun/2026 e serviços de jan/2012 a jul/2026, índice de faturamento
-   (2022 = 100) e IPCA.
+   (2022 = 100), IPCA, dólar e Selic.
 3. **Qualidade** — feito. Sem meses faltando, todos os estados presentes, IPCA
    em todos os meses; valores conferidos com o site do IBGE (ex.: varejo SP
    abr/2025 = 118,5, variação anual de +13,8% igual à publicada).
-4. **Exploração** — **a fazer.** Análises sugeridas (notebook com pandas e
-   matplotlib):
-   - gráfico de linha do Brasil nos dois setores — tendência, Natal, pandemia;
-   - crescimento real anual por estado — ranking de quem mais cresce;
+4. **Exploração** — **em andamento.** O `graficos.py` já gera 6 gráficos
+   (lista no README):
+   - Brasil nos dois setores — tendência, picos de Natal, queda da pandemia;
+   - nominal × real — quanto do crescimento é inflação;
+   - sazonalidade — fevereiro fraco, dezembro forte;
+   - ranking de crescimento real por estado em 2025;
+   - mapa de calor estado × ano — crises de 2015–16 e 2020;
+   - dólar, Selic e IPCA em 12 meses.
+
+   Ainda a fazer:
    - boxplot da variação anual por estado — quem oscila mais;
    - comparação varejo × serviços: os estados andam juntos nos dois setores?
-   - queda em 2020 e tempo de recuperação por estado.
+   - relação entre Selic/dólar e o crescimento real do faturamento.
 
-**Status:** em andamento — falta a exploração.
+**Status:** em andamento — gráficos iniciais feitos.
 
 ---
 
@@ -107,7 +114,7 @@ formato que o modelo precisa.
 | Tarefa | O que foi feito |
 |---|---|
 | Selecionar | só o índice de receita nominal sem ajuste sazonal; 2 setores; 27 estados + Brasil |
-| Integrar | 3 tabelas do IBGE (varejo, serviços e IPCA) numa única tabela |
+| Integrar | 3 tabelas do IBGE (varejo, serviços e IPCA) e 2 séries do Banco Central (dólar e Selic) numa única tabela |
 | Limpar | símbolos do IBGE que não são números (`X`, `..`) descartados |
 | Formatar | uma linha por setor × estado × mês, com siglas de UF |
 
@@ -121,6 +128,8 @@ formato que o modelo precisa.
    - variação anual real do mês e média dos últimos 3, 6 e 12 meses;
    - oscilação: desvio-padrão da variação nos últimos 12 meses;
    - variação do mesmo setor no Brasil (linhas `BR`) — o "clima" do país;
+   - indicadores da economia: IPCA em 12 meses, Selic e dólar (nível e
+     variação nos últimos meses);
    - mês do ano, setor e estado.
 4. **Alvo:** `1` se o faturamento real dos próximos 3 meses for maior que o dos
    mesmos 3 meses do ano anterior; senão `0`.
@@ -136,7 +145,8 @@ formato que o modelo precisa.
    histórico (crescimento real médio, oscilação, queda em 2020), com as colunas
    padronizadas para ficarem na mesma escala.
 
-Bibliotecas: adicionar `scikit-learn` e `matplotlib` ao `requirements.txt`.
+Bibliotecas: adicionar `scikit-learn` ao `requirements.txt` (o `matplotlib` já
+está).
 
 **Status:** em andamento.
 
@@ -224,7 +234,8 @@ resultado pode ser atualizado a qualquer momento.
 ## Próximos passos, em ordem
 
 1. Confirmar a definição de "bom faturamento" (fase 1).
-2. Notebook de exploração (fase 2).
+2. Completar a exploração — os gráficos iniciais já estão no `graficos.py`
+   (fase 2).
 3. Descontar a inflação, criar atributos e alvo (fase 3).
 4. K-means e Random Forest, com a regra de comparação (fase 4).
 5. Avaliar no período de teste (fase 5).

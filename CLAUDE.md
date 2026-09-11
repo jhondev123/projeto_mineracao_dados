@@ -16,7 +16,8 @@ deve crescer acima da inflação nos próximos 3 meses**.
 ### Escopo (decisão de 2026-09-11)
 
 Só **comércio varejista** (PMC) e **serviços** (PMS), por UF, com o índice
-oficial de receita nominal do IBGE e o IPCA. O usuário pediu para enxugar: a
+oficial de receita nominal do IBGE e o IPCA, mais dólar e Selic do Banco Central
+como indicadores do mês (pedido do usuário para as próximas etapas). O usuário pediu para enxugar: a
 apresentação precisa ser simples de explicar. Por isso **não** entram:
 estimativa em R$, indústria (proxy produção × preço), agro (exportação via
 Comex Stat), veículos e subsetores de serviços (só 12 UFs). Essa versão ampliada
@@ -27,7 +28,8 @@ existe no histórico do git (commit `12e9150`) se precisar voltar.
 Detalhe e plano de cada fase: [crisp.md](crisp.md). Glossário: [guia.md](guia.md).
 
 1. **Entendimento do negócio** — feito; definição do alvo a confirmar.
-2. **Entendimento dos dados** — coleta e conferência feitas; falta exploração.
+2. **Entendimento dos dados** — coleta, conferência e gráficos iniciais
+   (`graficos.py`) feitos; falta completar a exploração.
 3. **Preparação** — integração feita (`dataset.py`); faltam atributos e alvo.
 4. **Modelagem** — não iniciada. Plano: K-means + Random Forest contra baseline
    de persistência.
@@ -38,7 +40,7 @@ Detalhe e plano de cada fase: [crisp.md](crisp.md). Glossário: [guia.md](guia.m
 
 - Windows, pasta `C:\Users\jhonattan\Documents\faculdade\projeto_mineracao_dados`
 - Python 3.12, venv local em `.venv`
-- Dependências: `requests`, `pandas`
+- Dependências: `requests`, `pandas`, `matplotlib`
 - Repositório: https://github.com/jhondev123/projeto_mineracao_dados (branch `main`)
 
 ## Rodar
@@ -59,11 +61,12 @@ Opções:
 ```powershell
 python dataset.py --periodos 201501-202612   # outro intervalo
 python explorar.py 8880                      # variáveis e classificações de uma tabela
+python graficos.py                           # 6 gráficos PNG em graficos/ (lê o CSV mais recente)
 ```
 
 ## Fonte de dados
 
-Tudo do IBGE, API de Agregados (SIDRA v3), sem autenticação:
+Faturamento e IPCA do IBGE, API de Agregados (SIDRA v3), sem autenticação:
 `https://servicodados.ibge.gov.br/api/v3/agregados`
 Documentação: https://servicodados.ibge.gov.br/api/docs/agregados?versao=3
 
@@ -72,6 +75,19 @@ Documentação: https://servicodados.ibge.gov.br/api/docs/agregados?versao=3
 | `COMERCIO_VAREJISTA` | 8880 (PMC) | 7169 — Número-índice (2022=100) | `11046[56733]` receita nominal |
 | `SERVICOS` | 5906 (PMS) | 7167 — Número-índice (2022=100) | `11046[56725]` receita nominal |
 | `ipca` | 1737 (IPCA) | 2266 — Número-índice (dez/1993=100) | — (só Brasil) |
+
+Dólar e Selic do Banco Central, SGS, sem autenticação:
+`https://api.bcb.gov.br/dados/serie/bcdata.sgs.{serie}/dados?formato=json&dataInicial=01/01/2012&dataFinal=01/12/2026`
+
+| Coluna | Série SGS | O que é |
+|---|---|---|
+| `dolar` | 3698 | câmbio livre, dólar americano (venda), média mensal (R$/US$) |
+| `selic` | 4189 | Selic acumulada no mês, anualizada base 252 (% a.a.) |
+
+Série mensal vem datada no dia 1 (`01/04/2025` → `202504`). Séries diárias do
+SGS (ex.: 432, meta Selic) só aceitam janela de 10 anos por consulta — por isso
+as mensais. O mês corrente pode vir parcial, mas o merge é pelos meses do
+faturamento, então não entra.
 
 Os ids ficam no topo de `dataset.py`. Se o IBGE trocar a tabela (acontece quando
 muda o ano-base), achar a nova em https://sidra.ibge.gov.br e conferir os ids
@@ -106,12 +122,13 @@ Saída: `dados/faturamento_uf_mensal_YYYYMMDD.csv` — separador `;`, decimal `,
 BOM UTF-8. Uma linha por setor × UF × mês:
 
 ```
-setor;uf;ano;mes;indice_receita;ipca
-COMERCIO_VAREJISTA;SP;2025;3;118,90037;7245,38
-COMERCIO_VAREJISTA;SP;2025;4;118,53521;7276,54
+setor;uf;ano;mes;indice_receita;ipca;dolar;selic
+COMERCIO_VAREJISTA;SP;2025;3;118,90037;7245,38;5,7468;13,57
+COMERCIO_VAREJISTA;SP;2025;4;118,53521;7276,54;5,7837;14,15
 ```
 
-- `uf = BR` é o Brasil. O IPCA é nacional, igual para todas as UFs.
+- `uf = BR` é o Brasil. IPCA, dólar e Selic são nacionais, iguais para todas as
+  UFs.
 - `indice_real = indice_receita / ipca` desconta a inflação.
 - Ler em pandas: `pd.read_csv(caminho, sep=";", decimal=",")`.
 
@@ -126,22 +143,30 @@ derivadas do índice.
 
 - Índice, não R$ (o IBGE não publica faturamento mensal em reais).
 - Cobertura das pesquisas: empresas formais com 20+ pessoas ocupadas.
-- IPCA nacional aplicado a todas as UFs.
+- IPCA, dólar e Selic nacionais aplicados a todas as UFs.
 
 ## Decisões de design
 
-1. **Só IBGE, só dados diretos** — nada estimado, nada de proxy; fácil de
-   explicar na apresentação.
+1. **Só dados oficiais diretos (IBGE e Banco Central)** — nada estimado, nada de
+   proxy; fácil de explicar na apresentação.
 2. **Formato longo** — uma linha por setor × UF × mês; facilita filtro e pivot.
 3. **KISS** — `dataset.py` (orquestra e grava), `sidra.py` (cliente da API),
    `explorar.py` (metadados). Ids fixos no topo do `dataset.py`.
 4. **CSV para Excel PT-BR** — `;`, decimal `,`, BOM UTF-8.
+5. **Gráficos (`graficos.py`)** — matplotlib, PNG 150 dpi, tema claro com a
+   paleta de referência da skill dataviz (azul `#2a78d6` = varejo, laranja
+   `#eb6834` = serviços; divergente vermelho ↔ cinza ↔ azul), texto em cinza,
+   grade fina contínua, **nunca eixo duplo** (indicadores em painéis separados).
+   A deflação (`indice_receita / ipca`, rebase 2022 = 100) é feita só para
+   visualizar; o CSV fica cru. Títulos com `$` precisam de `\$` (mathtext). O
+   validador de paleta da skill precisa de Node, que não está instalado.
 
 ## Estrutura
 
 ```
 projeto_mineracao_dados/
-├── dataset.py         # baixa PMC, PMS e IPCA e gera o CSV
+├── dataset.py         # baixa PMC, PMS, IPCA, dólar e Selic e gera o CSV
+├── graficos.py        # gera 6 gráficos PNG em graficos/
 ├── sidra.py           # cliente da API: requisição + achatamento do JSON
 ├── explorar.py        # lista variáveis e classificações de uma tabela
 ├── requirements.txt
@@ -151,7 +176,8 @@ projeto_mineracao_dados/
 ├── fontes.md          # tabelas usadas, descartadas e como citar
 ├── CLAUDE.md          # este arquivo
 ├── .gitignore
-└── dados/             # saída, CSV ignorado no git (criada pelo script)
+├── dados/             # saída, CSV ignorado no git (criada pelo script)
+└── graficos/          # PNGs, ignorados no git (criada pelo script)
 ```
 
 ## Estado atual
@@ -161,7 +187,10 @@ BR). Varejo jan/2012–jun/2026, serviços jan/2012–jul/2026, sem meses faltan
 IPCA em todos os meses. Conferido: varejo SP abr/2025 = 118,53521 (igual ao
 SIDRA); abr/25 × abr/24 = +13,8% nominal, IPCA +5,5%, real +7,8%.
 
+**Validado (2026-09-11):** colunas `dolar` e `selic` sem nulos (jan/2012: R$ 1,79
+e 10,70%; jul/2026: R$ 5,11 e 14,15%). `graficos.py` gera os 6 PNGs.
+
 **Próximas etapas** (detalhe em [crisp.md](crisp.md)): confirmar definição de
-"bom faturamento", notebook de exploração, atributos e alvo (variação anual
+"bom faturamento", completar a exploração, atributos e alvo (variação anual
 real, divisão temporal), K-means e Random Forest contra baseline de
 persistência.

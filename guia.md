@@ -28,6 +28,22 @@ As duas pesquisam **empresas formais com 20 ou mais pessoas ocupadas**.
 **IPCA** — Índice Nacional de Preços ao Consumidor Amplo, a **inflação oficial**
 do Brasil, também medida pelo IBGE.
 
+**IPCA acumulado em 12 meses** — quanto os preços subiram nos últimos 12 meses.
+É o número de inflação que aparece no noticiário (ex.: "inflação de 4,4% em 12
+meses").
+
+**Banco Central (BCB)** — órgão que cuida da moeda e dos juros do país. Publica
+suas estatísticas no **SGS** (Sistema Gerenciador de Séries Temporais), que
+também tem API pública.
+
+**Dólar** — quantos reais custa um dólar americano. Usamos a **média do mês**
+(cotação de venda). Dólar alto encarece importados e combustíveis, o que mexe
+nos preços e no consumo.
+
+**Selic** — a taxa básica de juros da economia, definida pelo Banco Central.
+Usamos a Selic de cada mês em **% ao ano**. Juros altos encarecem o crédito e o
+parcelamento, o que costuma frear as vendas; juros baixos estimulam.
+
 ## 2. Número-índice
 
 O IBGE não divulga o faturamento mensal em reais: a pesquisa foi feita para
@@ -89,12 +105,13 @@ Cada tabela traz várias versões do dado. Usamos só uma:
 Uma linha por **setor × estado × mês** (o chamado formato longo):
 
 ```
-setor;uf;ano;mes;indice_receita;ipca
-COMERCIO_VAREJISTA;SP;2025;4;118,53521;7276,54
+setor;uf;ano;mes;indice_receita;ipca;dolar;selic
+COMERCIO_VAREJISTA;SP;2025;4;118,53521;7276,54;5,7837;14,15
 ```
 
 - `uf = BR` é o Brasil inteiro.
-- O IPCA é o mesmo para todos os estados (o índice é nacional).
+- IPCA, dólar e Selic são nacionais: o valor do mês se repete em todos os
+  estados.
 - Separador `;` e decimal `,` para abrir direto no Excel em português.
 
 Cada combinação setor × estado ao longo do tempo é uma **série temporal**: são
@@ -123,6 +140,11 @@ mostra quem vendeu mais de verdade.
 Não. Representam empresas formais com 20 ou mais pessoas ocupadas; pequenos
 negócios e informais ficam de fora.
 
+**Por que trazer dólar e Selic?**
+Porque afetam o consumo: juros altos encarecem o crédito e o parcelamento, e o
+dólar mexe nos preços. Eles entram como informação extra para o modelo prever o
+faturamento.
+
 **Os dados são confiáveis?**
-São estatísticas oficiais do IBGE, as mesmas usadas pelo Banco Central e pelo
-governo para acompanhar a economia.
+São estatísticas oficiais do IBGE e do Banco Central, usadas pelo governo e pelo
+mercado para acompanhar a economia.
