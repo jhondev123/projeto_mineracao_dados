@@ -25,7 +25,7 @@ Termos técnicos: [guia.md](guia.md). Fontes: [fontes.md](fontes.md).
 | Fase | Status | Arquivos |
 |---|---|---|
 | 1. Entendimento do negócio | feito (definição do alvo a confirmar) | este arquivo |
-| 2. Entendimento dos dados | coleta, conferência e gráficos iniciais feitos; falta completar a exploração | `dataset.py`, `graficos.py`, `explorar.py`, `fontes.md` |
+| 2. Entendimento dos dados | coleta, conferência e gráficos iniciais feitos; falta completar a exploração | `dataset.py`, `planilha_bruta.py`, `graficos.py`, `explorar.py`, `fontes.md` |
 | 3. Preparação dos dados | dados integrados; faltam atributos e alvo | `dataset.py` |
 | 4. Modelagem | não iniciada | — |
 | 5. Avaliação | não iniciada | — |
@@ -79,7 +79,8 @@ verificar a qualidade.
    (Kaggle, CONFAZ, agro, indústria); escolha das duas pesquisas com
    faturamento mensal para todos os estados (PMC e PMS) mais o IPCA; dólar e
    Selic do Banco Central como indicadores da economia. O `dataset.py` baixa
-   tudo das APIs do IBGE e do Banco Central.
+   tudo das APIs do IBGE e do Banco Central, e o `planilha_bruta.py` gera uma
+   planilha com os dados exatamente como vieram, para mostrar na apresentação.
 2. **Descrição** — feito. 2 setores, 27 estados + Brasil, varejo de jan/2012 a
    jun/2026 e serviços de jan/2012 a jul/2026, índice de faturamento
    (2022 = 100), IPCA, dólar e Selic.
@@ -216,7 +217,8 @@ Para o K-means: coeficiente de silhueta e se os grupos fazem sentido.
 
 **Neste projeto:** a apresentação na matéria, com:
 - problema e objetivo;
-- dados e fontes ([fontes.md](fontes.md));
+- dados e fontes ([fontes.md](fontes.md)), com a planilha dos dados brutos e,
+  depois, a dos dados normalizados;
 - principais achados da exploração;
 - grupos do K-means;
 - desempenho do Random Forest contra a regra de comparação;

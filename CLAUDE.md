@@ -36,11 +36,19 @@ Detalhe e plano de cada fase: [crisp.md](crisp.md). Glossário: [guia.md](guia.m
 5. **Avaliação** — não iniciada.
 6. **Implantação** — apresentação na matéria.
 
+### O que o professor pede no seminário
+
+Contextualizar o problema; mostrar as bases com **visualizações, gráficos e
+tabelas**; explicar como o CRISP-DM está sendo usado e como será usado nas
+próximas etapas; e apontar os **desafios** esperados (balanceamento, limpeza e
+transformação dos dados, escolha de modelo, disponibilização do conhecimento
+gerado).
+
 ## Ambiente
 
 - Windows, pasta `C:\Users\jhonattan\Documents\faculdade\projeto_mineracao_dados`
 - Python 3.12, venv local em `.venv`
-- Dependências: `requests`, `pandas`, `matplotlib`
+- Dependências: `requests`, `pandas`, `matplotlib`, `openpyxl`
 - Repositório: https://github.com/jhondev123/projeto_mineracao_dados (branch `main`)
 
 ## Rodar
@@ -61,7 +69,8 @@ Opções:
 ```powershell
 python dataset.py --periodos 201501-202612   # outro intervalo
 python explorar.py 8880                      # variáveis e classificações de uma tabela
-python graficos.py                           # 6 gráficos PNG em graficos/ (lê o CSV mais recente)
+python graficos.py                           # 9 gráficos PNG em graficos/ (lê o CSV mais recente)
+python planilha_bruta.py                     # dados brutos das APIs em xlsx, uma aba por fonte
 ```
 
 ## Fonte de dados
@@ -160,13 +169,22 @@ derivadas do índice.
    A deflação (`indice_receita / ipca`, rebase 2022 = 100) é feita só para
    visualizar; o CSV fica cru. Títulos com `$` precisam de `\$` (mathtext). O
    validador de paleta da skill precisa de Node, que não está instalado.
+6. **Planilha bruta (`planilha_bruta.py`)** — xlsx para a apresentação mostrar o
+   dado como coletado, antes do tratamento (o usuário vai mostrar depois a
+   planilha dos dados normalizados). Uma aba por fonte + "Leia-me"; JSON do IBGE
+   achatado sem renomear valores (nome da UF por extenso, período `AAAAMM`,
+   nome completo da variável), BCB com `data`/`valor` originais. Só números
+   viram número. Importa `SETORES`, `IPCA_*`, `BCB_SERIES` e `buscar_bcb` do
+   `dataset.py` para as duas saídas não divergirem. Sem fórmulas (não há
+   LibreOffice para recalcular), fonte Arial.
 
 ## Estrutura
 
 ```
 projeto_mineracao_dados/
 ├── dataset.py         # baixa PMC, PMS, IPCA, dólar e Selic e gera o CSV
-├── graficos.py        # gera 6 gráficos PNG em graficos/
+├── graficos.py        # gera 9 gráficos PNG em graficos/
+├── planilha_bruta.py  # xlsx com os dados como vieram das APIs (dados/dados_brutos_*.xlsx)
 ├── sidra.py           # cliente da API: requisição + achatamento do JSON
 ├── explorar.py        # lista variáveis e classificações de uma tabela
 ├── requirements.txt
@@ -189,6 +207,30 @@ SIDRA); abr/25 × abr/24 = +13,8% nominal, IPCA +5,5%, real +7,8%.
 
 **Validado (2026-09-11):** colunas `dolar` e `selic` sem nulos (jan/2012: R$ 1,79
 e 10,70%; jul/2026: R$ 5,11 e 14,15%). `graficos.py` gera os 6 PNGs.
+
+**Validado (2026-09-14):** `planilha_bruta.py` gerou `dados_brutos_20260914.xlsx`
+com 6 abas: varejo 4.872 linhas, serviços 4.900, IPCA 176, dólar 176, Selic 177
+(a API do BCB já devolve set/2026, mês em andamento — no CSV tratado não entra,
+porque o merge é pelos meses do faturamento). Nenhum símbolo do IBGE; SP 202504
+= 118,53521, igual ao CSV. `dataset.py` continua com 9.772 linhas e sem nulos
+após extrair `buscar_bcb`.
+
+**Gráficos para o seminário (2026-09-14):** `graficos.py` ganhou 07 (histórico de
+uma UF, nominal × real), 08 (duas UFs, crescimento real anual; aqui a cor é o
+estado: azul = 1º, laranja = 2º) e 09 (ranking por UF num período contra o mesmo
+período do ano anterior). `barras_uf` é compartilhada entre 04 e 09.
+
+**Apresentação (2026-09-14):** `apresentacao_mineracao_dados.pptx` na raiz, 12
+slides (python-pptx; o gerador ficou fora do repo e os números estão fixos no
+texto). Cobre os requisitos do professor: problema, bases (tabela + gráficos
+nativos de dólar/Selic/IPCA), tratamentos, índice × R$, Paraná, Paraná × Bahia,
+CRISP-DM, modelos, API, exemplos e desafios. Números usados, conferidos no CSV:
+PR varejo 2025×2024 +2,7% real, 2025×2022 +3,7% real (+18,8% nominal, IPCA
++14,6%); PR serviços 2025×2022 +15,8% real; BA varejo 2012→2025 −6,9% real (PR
++20,2%); 1º sem/2026 varejo: PE +10,4%, TO +5,7%, DF +5,2%, 19 de 27 UFs
+positivas. Alvo proposto (3 meses seguintes reais > mesmos meses do ano
+anterior): 53,6% positivos no total, mas 6–8% em 2015–16 e 85% em 2022/2024;
+~160 meses úteis por série.
 
 **Próximas etapas** (detalhe em [crisp.md](crisp.md)): confirmar definição de
 "bom faturamento", completar a exploração, atributos e alvo (variação anual

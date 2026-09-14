@@ -239,10 +239,40 @@ Os gráficos saem em `graficos/`, em PNG, prontos para usar em slides:
 | `04_crescimento_real_uf_2025.png` | ranking dos estados pelo crescimento real em 2025 |
 | `05_mapa_calor_crescimento_real.png` | crescimento real de cada estado, ano a ano (as crises de 2015–16 e 2020 aparecem em vermelho) |
 | `06_indicadores_economia.png` | dólar, Selic e inflação acumulada em 12 meses |
+| `07_historico_pr.png` | Paraná: varejo e serviços ao longo do tempo, com e sem inflação |
+| `08_comparativo_pr_ba.png` | Paraná × Bahia: crescimento real ano a ano nos dois setores |
+| `09_varejo_por_estado_202601_202606.png` | ranking do varejo por estado no 1º semestre de 2026 |
 
-Nos gráficos 02, 04 e 05 a inflação é descontada só para visualizar
+Nos gráficos 02, 04, 05, 07, 08 e 09 a inflação é descontada só para visualizar
 (`indice_receita / ipca`); o CSV continua com os dados do jeito que foram
-publicados.
+publicados. Para outro estado, outra dupla de estados ou outro período, basta
+mudar os parâmetros de `grafico_historico_uf`, `grafico_comparativo_ufs` e
+`grafico_ranking_periodo` em `graficos.py`.
+
+## Planilha dos dados brutos
+
+Para mostrar os dados exatamente como foram coletados, antes de qualquer
+tratamento:
+
+```powershell
+python planilha_bruta.py
+```
+
+Gera `dados/dados_brutos_AAAAMMDD.xlsx`, com uma aba por fonte:
+
+| Aba | Conteúdo |
+|---|---|
+| Leia-me | de onde veio cada aba, a consulta feita e o que significa cada coluna |
+| IBGE varejo 8880 | Pesquisa Mensal de Comércio, como a API do IBGE devolve |
+| IBGE serviços 5906 | Pesquisa Mensal de Serviços, como a API do IBGE devolve |
+| IBGE IPCA 1737 | IPCA, como a API do IBGE devolve |
+| BCB dólar 3698 | dólar, como a API do Banco Central devolve |
+| BCB Selic 4189 | Selic, como a API do Banco Central devolve |
+
+Nas abas do IBGE, cada linha traz o nome completo da variável, o nome do estado
+por extenso, o código do período (`202504`) e o valor; nas do Banco Central, a
+data (`01/04/2025`) e o valor. Nada é juntado, convertido ou renomeado — é o
+ponto de partida que depois vira o CSV do `dataset.py`.
 
 ## Limitações
 
@@ -261,6 +291,7 @@ Os termos técnicos estão explicados em [guia.md](guia.md).
 projeto_mineracao_dados/
 ├── dataset.py         # baixa os dados do IBGE e do Banco Central e gera o CSV
 ├── graficos.py        # gera os gráficos PNG a partir do CSV
+├── planilha_bruta.py  # gera a planilha xlsx com os dados como vieram das APIs
 ├── sidra.py           # funções de acesso à API do IBGE
 ├── explorar.py        # mostra o que uma tabela do IBGE contém (python explorar.py 8880)
 ├── requirements.txt   # bibliotecas Python
@@ -269,7 +300,7 @@ projeto_mineracao_dados/
 ├── guia.md            # termos técnicos explicados
 ├── fontes.md          # fontes e como citar
 ├── CLAUDE.md          # contexto técnico e decisões do projeto
-├── dados/             # CSV gerado (não vai para o git)
+├── dados/             # CSV e planilha gerados (não vão para o git)
 └── graficos/          # PNGs gerados (não vão para o git)
 ```
 

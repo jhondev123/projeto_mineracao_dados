@@ -19,6 +19,8 @@ import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import FuncFormatter
 
+from dataset import UF_SIGLA
+
 PASTA = Path(__file__).parent
 PASTA_DADOS = PASTA / "dados"
 PASTA_GRAFICOS = PASTA / "graficos"
@@ -40,6 +42,8 @@ SETORES = {
     "COMERCIO_VAREJISTA": ("Comércio varejista", AZUL),
     "SERVICOS": ("Serviços", LARANJA),
 }
+
+NOME_UF = {sigla: nome for nome, sigla in UF_SIGLA.items()}
 
 # Brasil no topo, depois UFs agrupadas por regiao (N, NE, SE, S, CO)
 ORDEM_UF = [
@@ -149,6 +153,23 @@ def eixo_y_numero(ax, casas=0, sufixo=""):
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: numero(v, casas) + sufixo))
 
 
+def barras_uf(ax, crescimento):
+    """Barras horizontais de crescimento (%) por UF, maior no topo, Brasil em cinza."""
+    valores = crescimento.sort_values()
+    cores = [TEXTO_APAGADO if uf == "BR" else AZUL for uf in valores.index]
+    ax.barh(valores.index, valores.values, color=cores, height=0.62)
+    ax.axvline(0, color=EIXO, linewidth=1)
+    for posicao, valor in enumerate(valores.values):
+        positivo = valor >= 0
+        ax.annotate(f"{numero(valor, 1, sinal=True)}%", xy=(valor, posicao), xytext=(4 if positivo else -4, 0),
+                    textcoords="offset points", ha="left" if positivo else "right", va="center",
+                    fontsize=8.5, color=TEXTO_SECUNDARIO)
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(axis="y", length=0, labelcolor=TEXTO_SECUNDARIO)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{numero(v, 0)}%"))
+    ax.margins(x=0.18, y=0.01)
+
+
 def grafico_brasil(df):
     fig, ax = nova_figura(
         11, 5.8,
@@ -241,20 +262,8 @@ def grafico_crescimento_uf(df, ano=2025):
         ncols=2,
     )
     for ax, (setor, (nome, _)) in zip(eixos, SETORES.items()):
-        valores = crescimento.loc[setor].sort_values()
-        cores = [TEXTO_APAGADO if uf == "BR" else AZUL for uf in valores.index]
-        ax.barh(valores.index, valores.values, color=cores, height=0.62)
-        ax.axvline(0, color=EIXO, linewidth=1)
-        for posicao, valor in enumerate(valores.values):
-            positivo = valor >= 0
-            ax.annotate(f"{numero(valor, 1, sinal=True)}%", xy=(valor, posicao), xytext=(4 if positivo else -4, 0),
-                        textcoords="offset points", ha="left" if positivo else "right", va="center",
-                        fontsize=8.5, color=TEXTO_SECUNDARIO)
+        barras_uf(ax, crescimento.loc[setor])
         ax.set_title(nome)
-        ax.grid(axis="y", visible=False)
-        ax.tick_params(axis="y", length=0, labelcolor=TEXTO_SECUNDARIO)
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{numero(v, 0)}%"))
-        ax.margins(x=0.18, y=0.01)
     return salvar(fig, f"04_crescimento_real_uf_{ano}.png")
 
 
@@ -326,6 +335,82 @@ def grafico_indicadores(df):
     return salvar(fig, "06_indicadores_economia.png")
 
 
+def grafico_historico_uf(df, uf="PR"):
+    estado = df[df["uf"] == uf]
+    fig, eixos = nova_figura(
+        12, 5.8,
+        f"{NOME_UF[uf]}: faturamento do varejo e dos serviços",
+        "Índice de faturamento (média de 2022 = 100). À esquerda, como o IBGE publica; à direita, descontada a inflação (IPCA).",
+        FONTE_IBGE,
+        ncols=2, sharey=True,
+    )
+    paineis = [("indice_receita", "Nominal (com inflação)"), ("indice_real", "Real (sem inflação)")]
+    for ax, (coluna, titulo) in zip(eixos, paineis):
+        for setor, (nome, cor) in SETORES.items():
+            serie = estado[estado["setor"] == setor]
+            ax.plot(serie["data"], serie[coluna], color=cor, label=nome)
+        ax.axhline(100, color=EIXO, linewidth=1, zorder=1)
+        ax.set_title(titulo)
+        eixo_anos(ax, estado["data"])
+        eixo_y_numero(ax)
+    eixos[0].legend(loc="upper left")
+    return salvar(fig, f"07_historico_{uf.lower()}.png")
+
+
+def grafico_comparativo_ufs(df, ufs=("PR", "BA"), ultimo_ano=2025):
+    """Crescimento real ano a ano de dois estados, lado a lado, nos dois setores."""
+    periodo = df[df["uf"].isin(ufs) & (df["ano"] <= ultimo_ano)]
+    anual = periodo.groupby(["setor", "uf", "ano"])["indice_real"].sum()
+    crescimento = (anual.groupby(level=["setor", "uf"]).pct_change() * 100).dropna()
+    cores = dict(zip(ufs, (AZUL, LARANJA)))  # slots 1 e 2 da paleta: aqui a cor e o estado
+    primeiro, segundo = ufs
+
+    fig, eixos = nova_figura(
+        12, 6,
+        f"{NOME_UF[primeiro]} × {NOME_UF[segundo]}: crescimento real por ano",
+        "Faturamento de cada ano contra o ano anterior, descontada a inflação (IPCA). Cada estado comparado com ele mesmo.",
+        FONTE_IBGE,
+        ncols=2, sharey=True,
+    )
+    largura = 0.38
+    for ax, (setor, (nome, _)) in zip(eixos, SETORES.items()):
+        for i, uf in enumerate(ufs):
+            valores = crescimento.loc[(setor, uf)]
+            posicoes = [ano + (i - 0.5) * largura for ano in valores.index]
+            ax.bar(posicoes, valores.values, width=largura, color=cores[uf], label=NOME_UF[uf],
+                   edgecolor=SUPERFICIE, linewidth=1)
+        ax.axhline(0, color=EIXO, linewidth=1)
+        ax.set_title(nome)
+        ax.set_xticks(list(valores.index), [str(ano) for ano in valores.index], fontsize=8)
+        ax.grid(axis="x", visible=False)
+        eixo_y_numero(ax, sufixo="%")
+    eixos[0].legend(loc="lower left")
+    return salvar(fig, f"08_comparativo_{primeiro.lower()}_{segundo.lower()}.png")
+
+
+def grafico_ranking_periodo(df, setor="COMERCIO_VAREJISTA", inicio=(2026, 1), fim=(2026, 6)):
+    """Crescimento real por UF num periodo escolhido, contra o mesmo periodo do ano anterior."""
+    periodo = df["ano"] * 100 + df["mes"]
+    de, ate = inicio[0] * 100 + inicio[1], fim[0] * 100 + fim[1]
+    do_setor = df["setor"] == setor
+    atual = df[do_setor & periodo.between(de, ate)].groupby("uf")["indice_real"].sum()
+    anterior = df[do_setor & periodo.between(de - 100, ate - 100)].groupby("uf")["indice_real"].sum()
+    crescimento = ((atual / anterior - 1) * 100).dropna()
+
+    nome = SETORES[setor][0]
+    texto_inicio = f"{MESES[inicio[1] - 1]}/{inicio[0]}"
+    texto_fim = f"{MESES[fim[1] - 1]}/{fim[0]}"
+    fig, ax = nova_figura(
+        9, 9.5,
+        f"{nome}: crescimento real por estado",
+        f"De {texto_inicio} a {texto_fim}, contra o mesmo período do ano anterior, sem inflação (IPCA). Brasil em cinza.",
+        FONTE_IBGE,
+    )
+    barras_uf(ax, crescimento)
+    apelido = "varejo" if setor == "COMERCIO_VAREJISTA" else "servicos"
+    return salvar(fig, f"09_{apelido}_por_estado_{de}_{ate}.png")
+
+
 def main():
     estilo()
     df = carregar()
@@ -338,6 +423,9 @@ def main():
         grafico_crescimento_uf,
         grafico_mapa_calor,
         grafico_indicadores,
+        grafico_historico_uf,
+        grafico_comparativo_ufs,
+        grafico_ranking_periodo,
     ]
     for grafico in graficos:
         print(f"salvo: {grafico(df)}")

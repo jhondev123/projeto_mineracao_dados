@@ -74,8 +74,8 @@ def baixar(tabela, variavel, classificacoes, periodos, localidades):
     return df[["localidade", "periodo", "valor"]]
 
 
-def baixar_bcb(serie, periodos):
-    """Uma serie mensal do SGS/BCB. Colunas: periodo (AAAAMM), valor."""
+def buscar_bcb(serie, periodos):
+    """Serie mensal do SGS/BCB como a API devolve: [{"data": "01/04/2025", "valor": "5.7837"}, ...]."""
     inicio, fim = periodos.split("-")
     params = {
         "formato": "json",
@@ -84,10 +84,15 @@ def baixar_bcb(serie, periodos):
     }
     resposta = requests.get(BCB_URL.format(serie=serie), params=params, timeout=60)
     resposta.raise_for_status()
+    return resposta.json()
+
+
+def baixar_bcb(serie, periodos):
+    """Uma serie mensal do SGS/BCB. Colunas: periodo (AAAAMM), valor."""
     # data vem como DD/MM/AAAA
     linhas = [
         {"periodo": item["data"][6:] + item["data"][3:5], "valor": float(item["valor"])}
-        for item in resposta.json()
+        for item in buscar_bcb(serie, periodos)
     ]
     return pd.DataFrame(linhas, columns=["periodo", "valor"])
 
